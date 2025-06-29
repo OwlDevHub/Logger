@@ -1,18 +1,18 @@
 // Экспортируем все типы
-export * from './types.js';
+export * from './src/types.js';
 
 // Экспортируем утилиты
-export * from './utils.js';
+export * from './src/utils.js';
 
 // Экспортируем транспорты
-export * from './transports.js';
+export * from './src/transports.js';
 
 // Экспортируем основной класс логгера
-export { Logger } from './logger.js';
+export { Logger } from './src/logger.js';
 
 // Создаем глобальный экземпляр логгера
-import { Logger } from './logger.js';
-import { LoggerConfig } from './types.js';
+import { Logger } from './src/logger.js';
+import { LoggerConfig } from './src/types.js';
 
 /**
  * Глобальный экземпляр логгера для быстрого доступа
