@@ -179,4 +179,90 @@ export function createMainIpcTransport(): Transport {
       }
     }
   };
+}
+
+/**
+ * Автоматический IPC транспорт - автоматически определяет контекст и настраивает пересылку
+ */
+export function createAutoIpcTransport(channel = 'logger'): Transport {
+  return (level: LogLevel, message: string, meta?: any, context?: LogContext) => {
+    const executionContext = context?.context;
+    
+    if (executionContext === 'renderer') {
+      // В renderer процессе - отправляем в main
+      if (typeof window !== 'undefined' && (window as any).electronAPI?.ipcRenderer) {
+        try {
+          (window as any).electronAPI.ipcRenderer.send(channel, {
+            level,
+            message,
+            meta,
+            context,
+            timestamp: new Date().toISOString(),
+            source: 'renderer'
+          });
+        } catch (error) {
+          console.error('Auto IPC transport error (renderer):', error);
+        }
+      }
+    } else if (executionContext === 'main') {
+      // В main процессе - выводим в терминал
+      const timestamp = context?.timestamp || new Date().toISOString();
+      const levelName = context?.levelName || LogLevel[level];
+      const prefix = `[${timestamp}] [${levelName}] [MAIN]`;
+      const logMessage = `${prefix} ${message}`;
+      
+      switch (level) {
+        case LogLevel.ERROR:
+          console.error(logMessage, meta || '');
+          break;
+        case LogLevel.WARN:
+          console.warn(logMessage, meta || '');
+          break;
+        case LogLevel.INFO:
+          console.info(logMessage, meta || '');
+          break;
+        default:
+          console.log(logMessage, meta || '');
+      }
+    }
+  };
+}
+
+/**
+ * Глобальный IPC обработчик для main процесса
+ * Должен быть вызван в main процессе для приема логов от renderer
+ */
+export function setupMainIpcHandler(channel = 'logger') {
+  if (typeof process === 'undefined' || (process as any).type !== 'browser') {
+    return;
+  }
+  
+  try {
+    const { ipcMain } = require('electron');
+    
+    ipcMain.on(channel, (_event: any, logData: any) => {
+      const { level, message, meta, timestamp } = logData;
+      const levelName = LogLevel[level];
+      const prefix = `[${timestamp}] [${levelName}] [RENDERER]`;
+      const logMessage = `${prefix} ${message}`;
+      
+      switch (level) {
+        case LogLevel.ERROR:
+          console.error(logMessage, meta || '');
+          break;
+        case LogLevel.WARN:
+          console.warn(logMessage, meta || '');
+          break;
+        case LogLevel.INFO:
+          console.info(logMessage, meta || '');
+          break;
+        default:
+          console.log(logMessage, meta || '');
+      }
+    });
+    
+    console.log(`[LOGGER] IPC handler set up for channel: ${channel}`);
+  } catch (error) {
+    console.error('Failed to setup IPC handler:', error);
+  }
 } 
