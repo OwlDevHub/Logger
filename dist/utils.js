@@ -70,7 +70,7 @@ export function createColoredText(text, color) {
         white: '\x1b[37m',
         reset: '\x1b[0m',
     };
-    return `${colors[color] || ''}${text}${colors.reset}`;
+    return `${colors[color] ?? ''}${text}${colors.reset}`;
 }
 /**
  * Форматирует размер файла в читаемый вид

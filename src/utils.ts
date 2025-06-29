@@ -92,7 +92,7 @@ export function createColoredText(text: string, color: string): string {
     reset: '\x1b[0m',
   };
   
-  return `${colors[color as keyof typeof colors] || ''}${text}${colors.reset}`;
+  return `${colors[color as keyof typeof colors] ?? ''}${text}${colors.reset}`;
 }
 
 /**

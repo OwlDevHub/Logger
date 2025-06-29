@@ -5,8 +5,8 @@ import { createColoredText, isFileSystemSupported } from './utils.js';
  */
 export function createConsoleTransport(enableColors = true) {
     return (level, message, meta, context) => {
-        const timestamp = context?.timestamp || new Date().toISOString();
-        const levelName = context?.levelName || LogLevel[level];
+        const timestamp = context?.timestamp ?? new Date().toISOString();
+        const levelName = context?.levelName ?? LogLevel[level];
         let prefix = `[${timestamp}] [${levelName}]`;
         if (enableColors) {
             const colorMap = {
@@ -21,18 +21,86 @@ export function createConsoleTransport(enableColors = true) {
         const logMessage = `${prefix} ${message}`;
         switch (level) {
             case LogLevel.ERROR:
-                console.error(logMessage, meta || '');
+                console.error(logMessage, meta ?? '');
                 break;
             case LogLevel.WARN:
-                console.warn(logMessage, meta || '');
+                console.warn(logMessage, meta ?? '');
                 break;
             case LogLevel.INFO:
-                console.info(logMessage, meta || '');
+                console.info(logMessage, meta ?? '');
                 break;
             default:
-                console.log(logMessage, meta || '');
+                console.log(logMessage, meta ?? '');
         }
     };
+}
+/**
+ * Инициализация файловой системы
+ */
+function initializeFileSystem() {
+    try {
+        const fs = require('fs');
+        const pathModule = require('path');
+        return { fs, pathModule };
+    }
+    catch (error) {
+        console.warn('File system modules not available');
+        return null;
+    }
+}
+/**
+ * Создание директории для логов
+ */
+function ensureLogDirectory(fs, pathModule, filePath) {
+    const dir = pathModule.dirname(filePath);
+    if (!fs.existsSync(dir)) {
+        try {
+            fs.mkdirSync(dir, { recursive: true });
+            return true;
+        }
+        catch (error) {
+            console.error('Failed to create log directory:', error);
+            return false;
+        }
+    }
+    return true;
+}
+/**
+ * Проверка и ротация файла логов
+ */
+async function checkAndRotateFile(fs, filePath, maxSize, maxFiles) {
+    if (fs.existsSync(filePath)) {
+        const stats = fs.statSync(filePath);
+        if (stats.size > maxSize) {
+            await rotateLogFile(fs, filePath, maxFiles);
+        }
+    }
+}
+/**
+ * Создание записи лога
+ */
+function createLogEntry(level, message, meta, context) {
+    return {
+        timestamp: context?.timestamp ?? new Date().toISOString(),
+        level: context?.levelName ?? LogLevel[level],
+        message,
+        meta,
+        context: context?.context,
+        environment: context?.environment,
+        processId: context?.processId,
+        threadId: context?.threadId,
+    };
+}
+/**
+ * Форматирование строки лога
+ */
+function formatLogLine(logEntry, format, meta) {
+    if (format === 'json') {
+        return JSON.stringify(logEntry) + '\n';
+    }
+    const metaString = meta ? ' ' + JSON.stringify(meta) : '';
+    const formattedMessage = `[${logEntry.timestamp}] [${logEntry.level}] ${logEntry.message}${metaString}\n`;
+    return formattedMessage;
 }
 /**
  * Файловый транспорт с ротацией
@@ -44,52 +112,21 @@ export function createFileTransport(options) {
     }
     const { filePath, maxSize = 10 * 1024 * 1024, // 10MB по умолчанию
     maxFiles = 5, format = 'json', encoding = 'utf8' } = options;
-    // Динамический импорт fs для избежания проблем в renderer процессе
-    let fs;
-    let pathModule;
-    try {
-        fs = require('fs');
-        pathModule = require('path');
-    }
-    catch (error) {
-        console.warn('File system modules not available');
+    // Инициализация файловой системы
+    const fileSystem = initializeFileSystem();
+    if (!fileSystem) {
         return () => { };
     }
-    // Создаем директорию, если она не существует
-    const dir = pathModule.dirname(filePath);
-    if (!fs.existsSync(dir)) {
-        try {
-            fs.mkdirSync(dir, { recursive: true });
-        }
-        catch (error) {
-            console.error('Failed to create log directory:', error);
-            return () => { };
-        }
+    const { fs, pathModule } = fileSystem;
+    // Создание директории
+    if (!ensureLogDirectory(fs, pathModule, filePath)) {
+        return () => { };
     }
     return async (level, message, meta, context) => {
         try {
-            // Проверяем размер файла
-            if (fs.existsSync(filePath)) {
-                const stats = fs.statSync(filePath);
-                if (stats.size > maxSize) {
-                    await rotateLogFile(fs, filePath, maxFiles);
-                }
-            }
-            // Формируем запись лога
-            const logEntry = {
-                timestamp: context?.timestamp || new Date().toISOString(),
-                level: context?.levelName || LogLevel[level],
-                message,
-                meta,
-                context: context?.context,
-                environment: context?.environment,
-                processId: context?.processId,
-                threadId: context?.threadId,
-            };
-            // Записываем в файл
-            const logLine = format === 'json'
-                ? JSON.stringify(logEntry) + '\n'
-                : `[${logEntry.timestamp}] [${logEntry.level}] ${logEntry.message}${meta ? ' ' + JSON.stringify(meta) : ''}\n`;
+            await checkAndRotateFile(fs, filePath, maxSize, maxFiles);
+            const logEntry = createLogEntry(level, message, meta, context);
+            const logLine = formatLogLine(logEntry, format, meta);
             fs.appendFileSync(filePath, logLine, encoding);
         }
         catch (error) {
@@ -188,22 +225,22 @@ export function createAutoIpcTransport(channel = 'logger') {
         }
         else if (executionContext === 'main') {
             // В main процессе - выводим в терминал
-            const timestamp = context?.timestamp || new Date().toISOString();
-            const levelName = context?.levelName || LogLevel[level];
+            const timestamp = context?.timestamp ?? new Date().toISOString();
+            const levelName = context?.levelName ?? LogLevel[level];
             const prefix = `[${timestamp}] [${levelName}] [MAIN]`;
             const logMessage = `${prefix} ${message}`;
             switch (level) {
                 case LogLevel.ERROR:
-                    console.error(logMessage, meta || '');
+                    console.error(logMessage, meta ?? '');
                     break;
                 case LogLevel.WARN:
-                    console.warn(logMessage, meta || '');
+                    console.warn(logMessage, meta ?? '');
                     break;
                 case LogLevel.INFO:
-                    console.info(logMessage, meta || '');
+                    console.info(logMessage, meta ?? '');
                     break;
                 default:
-                    console.log(logMessage, meta || '');
+                    console.log(logMessage, meta ?? '');
             }
         }
     };
@@ -225,16 +262,16 @@ export function setupMainIpcHandler(channel = 'logger') {
             const logMessage = `${prefix} ${message}`;
             switch (level) {
                 case LogLevel.ERROR:
-                    console.error(logMessage, meta || '');
+                    console.error(logMessage, meta ?? '');
                     break;
                 case LogLevel.WARN:
-                    console.warn(logMessage, meta || '');
+                    console.warn(logMessage, meta ?? '');
                     break;
                 case LogLevel.INFO:
-                    console.info(logMessage, meta || '');
+                    console.info(logMessage, meta ?? '');
                     break;
                 default:
-                    console.log(logMessage, meta || '');
+                    console.log(logMessage, meta ?? '');
             }
         });
         console.log(`[LOGGER] IPC handler set up for channel: ${channel}`);
