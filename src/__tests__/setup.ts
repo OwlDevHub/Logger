@@ -1,5 +1,5 @@
 // Global test setup
-import { resetLogger } from '../../index.js';
+import { resetLogger } from '../index.js';
 
 // Reset logger before each test
 beforeEach(() => {
