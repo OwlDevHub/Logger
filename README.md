@@ -14,8 +14,47 @@ Advanced logging library for Electron + React applications with automatic contex
 
 ## 📦 Installation
 
+### Option 1: Local Development (Recommended)
+
+If you're working in a monorepo or local development:
+
+```bash
+# In your main project's package.json
+{
+  "dependencies": {
+    "@OwlDevHub/Logger": "file:../Logger"
+  }
+}
+```
+
+### Option 2: Git Repository
+
+```bash
+# Install directly from Git repository
+yarn add https://github.com/OwlDevHub/Logger.git
+
+# Or in package.json
+{
+  "dependencies": {
+    "@OwlDevHub/Logger": "github:OwlDevHub/Logger"
+  }
+}
+```
+
+### Option 3: Published Package (when available)
+
 ```bash
 yarn add @OwlDevHub/Logger
+```
+
+### Build the Module
+
+Before using the module, make sure it's built:
+
+```bash
+cd Logger
+yarn install
+yarn build
 ```
 
 ## 🎯 Quick Start
@@ -326,6 +365,30 @@ const externalServiceTransport: Transport = async (level, message, meta, context
 const logger = createLogger({
   transports: [externalServiceTransport]
 });
+```
+
+## 🔧 Troubleshooting
+
+### ESM Import Issues
+
+If you encounter ESM-related errors, make sure:
+
+1. Your project has `"type": "module"` in package.json
+2. You're using the correct import syntax
+3. The module is properly built (`yarn build` in Logger directory)
+
+### TypeScript Configuration
+
+Make sure your `tsconfig.json` includes:
+
+```json
+{
+  "compilerOptions": {
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true
+  }
+}
 ```
 
 ## 📄 License

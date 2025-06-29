@@ -4,6 +4,13 @@
   "description": "Advanced Logger for OWL Electron + React applications",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/OwlDevHub/Logger.git"
